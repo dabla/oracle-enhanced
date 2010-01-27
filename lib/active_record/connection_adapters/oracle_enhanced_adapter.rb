@@ -680,14 +680,22 @@ module ActiveRecord
           next if value.nil?  || (value == '')
           value = value.to_yaml if col.text? && klass.serialized_attributes[col.name]
           uncached do
+            result = nil
+    
             if is_with_cpk
-              lob = select_one("SELECT #{col.name} FROM #{table_name} WHERE #{klass.composite_where_clause(id)} FOR UPDATE",
-                                'Writable Large Object')[col.name]
+              result = select_one("SELECT #{col.name} FROM #{table_name} WHERE #{klass.composite_where_clause(id)} FOR UPDATE",
+                'Writable Large Object')
             else
-              lob = select_one("SELECT #{col.name} FROM #{table_name} WHERE #{klass.primary_key} = #{id} FOR UPDATE",
-                               'Writable Large Object')[col.name]
+              result = select_one("SELECT #{col.name} FROM #{table_name} WHERE #{klass.primary_key} = #{id} FOR UPDATE",
+                'Writable Large Object')
             end
-            @connection.write_lob(lob, value.to_s, col.type == :binary)
+    
+            # first check if result is not nil
+            if result
+              # when not nil, then retrieve lob for specified column name
+              lob = result[col.name]
+              @connection.write_lob(lob, value.to_s, col.type == :binary)
+            end
           end
         end
       end
